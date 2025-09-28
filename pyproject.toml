@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "APACHE 2.0" }
-authros = [{ name = "Guilherme Jorge" }]
+authors = [{ name = "Guilherme Jorge" }]
 dependencies = [
     "certifi==2025.8.3",
     "charset-normalizer==3.4.3",
@@ -59,8 +59,8 @@ dev = [
 package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
-where = ["src", "model_training"]
-include = ["src*", "model_training*"]
+where = ["src"]
+include = ["src*"]
 
 [tool.ruff]
 line-length = 100
