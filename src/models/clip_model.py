@@ -71,7 +71,11 @@ def load_encoder(device: str = "cuda", weights_path: str = "data/cover_encoder.p
     if os.path.exists(weights_path):
         state = torch.load(weights_path, map_location=device)
         proj_weight = state.get("proj.weight")
-        proj = nn.Linear(in_dim, int(proj_weight.shape[0])) if proj_weight is not None else nn.Identity()
+        proj = (
+            nn.Linear(in_dim, int(proj_weight.shape[0]))
+            if proj_weight is not None
+            else nn.Identity()
+        )
         model = ImgModel(base, proj)
         load_res = model.load_state_dict(state, strict=False)
         if hasattr(load_res, "missing_keys") and load_res.missing_keys:
@@ -80,7 +84,10 @@ def load_encoder(device: str = "cuda", weights_path: str = "data/cover_encoder.p
             logger.warning("Unexpected keys when loading encoder: %s", load_res.unexpected_keys)
         logger.info("Loaded fine-tuned encoder from %s", weights_path)
     else:
-        logger.warning("Fine-tuned weights not found at %s; using base CLIP with identity projection", weights_path)
+        logger.warning(
+            "Fine-tuned weights not found at %s; using base CLIP with identity projection",
+            weights_path,
+        )
         model = ImgModel(base, nn.Identity())
 
     model.eval().to(device)

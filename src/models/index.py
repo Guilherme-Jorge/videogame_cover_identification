@@ -48,10 +48,14 @@ def build_faiss(embs: np.ndarray, use_gpu: bool = True) -> faiss.Index:
     return index
 
 
-def save_index(index: faiss.Index, embs: np.ndarray, metas: list,
-               index_path: str = "covers.faiss",
-               npy_path: str = "covers.npy",
-               meta_path: str = "covers_meta.json"):
+def save_index(
+    index: faiss.Index,
+    embs: np.ndarray,
+    metas: list,
+    index_path: str = "covers.faiss",
+    npy_path: str = "covers.npy",
+    meta_path: str = "covers_meta.json",
+):
     """Save FAISS index, embeddings, and metadata to disk.
 
     Args:

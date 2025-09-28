@@ -38,10 +38,7 @@ def _persp_coeffs(src, dst):
     """Compute perspective transformation coefficients."""
     a, b = [], []
     for (x, y), (u, v) in zip(src, dst):
-        a.extend([
-            [x, y, 1, 0, 0, 0, -u * x, -u * y],
-            [0, 0, 0, x, y, 1, -v * x, -v * y]
-        ])
+        a.extend([[x, y, 1, 0, 0, 0, -u * x, -u * y], [0, 0, 0, x, y, 1, -v * x, -v * y]])
         b.extend([u, v])
     a = np.array(a, dtype=np.float32)
     b = np.array(b, dtype=np.float32)
@@ -71,12 +68,7 @@ def convert_to_rgb(img: Image.Image) -> Image.Image:
 class CoverAugDataset(Dataset):
     """Dataset for contrastive learning on game covers with augmentations."""
 
-    def __init__(
-        self,
-        jsonl_path: str,
-        root_dir: str,
-        img_key: str = "local_filename"
-    ):
+    def __init__(self, jsonl_path: str, root_dir: str, img_key: str = "local_filename"):
         """Initialize the dataset.
 
         Args:
@@ -108,31 +100,37 @@ class CoverAugDataset(Dataset):
             skipped_missing,
         )
 
-        self.base = t.Compose([
-            t.Resize(256, interpolation=t.InterpolationMode.BICUBIC),
-            t.CenterCrop(224),
-        ])
+        self.base = t.Compose(
+            [
+                t.Resize(256, interpolation=t.InterpolationMode.BICUBIC),
+                t.CenterCrop(224),
+            ]
+        )
 
         self.color = t.ColorJitter(0.4, 0.4, 0.4, 0.1)
         self.perspective_jitter = PerspectiveJitter(0.10)
-        self.aug = t.Compose([
-            self.perspective_jitter,
-            t.RandomApply([t.GaussianBlur(kernel_size=9, sigma=(0.1, 2.0))], p=0.3),
-            t.RandomApply([glare_overlay], p=0.2),
-            t.RandomResizedCrop(224, scale=(0.8, 1.0)),
-            t.RandomRotation(degrees=3),
-            t.RandomAdjustSharpness(1.5, p=0.3),
-            t.RandomAutocontrast(p=0.3),
-            convert_to_rgb,
-        ])
+        self.aug = t.Compose(
+            [
+                self.perspective_jitter,
+                t.RandomApply([t.GaussianBlur(kernel_size=9, sigma=(0.1, 2.0))], p=0.3),
+                t.RandomApply([glare_overlay], p=0.2),
+                t.RandomResizedCrop(224, scale=(0.8, 1.0)),
+                t.RandomRotation(degrees=3),
+                t.RandomAdjustSharpness(1.5, p=0.3),
+                t.RandomAutocontrast(p=0.3),
+                convert_to_rgb,
+            ]
+        )
 
-        self.to_tensor = t.Compose([
-            t.ToTensor(),
-            t.Normalize(
-                mean=(0.48145466, 0.4578275, 0.40821073),
-                std=(0.26862954, 0.26130258, 0.27577711),
-            ),
-        ])
+        self.to_tensor = t.Compose(
+            [
+                t.ToTensor(),
+                t.Normalize(
+                    mean=(0.48145466, 0.4578275, 0.40821073),
+                    std=(0.26862954, 0.26130258, 0.27577711),
+                ),
+            ]
+        )
 
     def __len__(self) -> int:
         return len(self.items)

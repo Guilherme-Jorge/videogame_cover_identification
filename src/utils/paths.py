@@ -25,15 +25,17 @@ def detect_covers_root(preferred: str | None = None) -> str:
     if env_root:
         candidates.append(env_root)
     here = os.path.abspath(os.path.dirname(__file__))
-    # Go up multiple levels to find the project root
-    candidates.extend([
-        here,
-        os.path.abspath(os.path.join(here, "..", "..")),
-        os.path.abspath(os.path.join(here, "..", "..", "..")),
-        os.path.abspath(os.path.join(here, "..", "..", "igdb-cover-extraction")),
-        os.path.abspath(os.path.join(here, "..", "..", "..", "..")),
-        os.path.abspath(os.path.join(here, "..", "..", "data"))
-    ])
+
+    candidates.extend(
+        [
+            here,
+            os.path.abspath(os.path.join(here, "..", "..")),
+            os.path.abspath(os.path.join(here, "..", "..", "..")),
+            os.path.abspath(os.path.join(here, "..", "..", "igdb-cover-extraction")),
+            os.path.abspath(os.path.join(here, "..", "..", "..", "..")),
+            os.path.abspath(os.path.join(here, "..", "..", "data")),
+        ]
+    )
 
     for c in candidates:
         try:

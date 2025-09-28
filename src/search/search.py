@@ -17,13 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def _search_once(
-    index,
-    metas: list,
-    model,
-    preprocess,
-    query_bgr: cv2.Mat,
-    topk: int,
-    rerank_k: int
+    index, metas: list, model, preprocess, query_bgr: cv2.Mat, topk: int, rerank_k: int
 ) -> dict[str, Any]:
     """Run a single retrieval pass and geometric re-ranking.
 
@@ -76,8 +70,7 @@ def _search_once(
             "local_filename": meta["local_filename"],
         },
         "alternatives": [
-            {"cosine": float(s), "id": m["id"], "name": m["name"]}
-            for (s, _, _, m) in reranked[1:5]
+            {"cosine": float(s), "id": m["id"], "name": m["name"]} for (s, _, _, m) in reranked[1:5]
         ],
     }
 
@@ -87,7 +80,7 @@ def search_cover(
     topk: Optional[int] = None,
     rerank_k: Optional[int] = None,
     accept: Optional[float] = None,
-    device: Optional[str] = None
+    device: Optional[str] = None,
 ) -> dict[str, Any]:
     """Search for the best-matching game cover given an input image path.
 
@@ -123,7 +116,9 @@ def search_cover(
         out_dim = int(model(dummy).shape[-1])
 
     if getattr(index, "d", None) not in (None, out_dim):
-        raise ValueError(f"Index dim {getattr(index, 'd', None)} does not match model dim {out_dim}")
+        raise ValueError(
+            f"Index dim {getattr(index, 'd', None)} does not match model dim {out_dim}"
+        )
 
     bgr = cv2.imread(image_path, cv2.IMREAD_COLOR)
     crop, overlay, quad = detect_and_rectify_cover(bgr)
@@ -131,7 +126,9 @@ def search_cover(
     try:
         cv2.imwrite("export_crop.png", crop)
         cv2.imwrite("export_debug.png", overlay)
-        logger.info("Exported rectified crop to export_crop.png and debug overlay to export_debug.png")
+        logger.info(
+            "Exported rectified crop to export_crop.png and debug overlay to export_debug.png"
+        )
     except Exception as e:
         logger.warning("Failed to export debug images: %s", e)
 
@@ -145,9 +142,8 @@ def search_cover(
     chosen = res_crop if pick_crop else res_full
     chosen_variant = "crop" if pick_crop else "full"
     other = res_full if pick_crop else res_crop
-    is_confident = (
-        (chosen["cosine"] >= accept) or
-        (chosen["geom_score"] >= config.search.geom_score_threshold)
+    is_confident = (chosen["cosine"] >= accept) or (
+        chosen["geom_score"] >= config.search.geom_score_threshold
     )
 
     result = {

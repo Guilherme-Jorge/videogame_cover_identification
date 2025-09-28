@@ -8,6 +8,7 @@ from typing import Optional
 @dataclass
 class SearchConfig:
     """Configuration for search operations."""
+
     topk: int = 25
     rerank_k: int = 5
     accept_threshold: float = 0.25
@@ -17,6 +18,7 @@ class SearchConfig:
 @dataclass
 class IndexConfig:
     """Configuration for index building."""
+
     jsonl_path: str = "metadata.jsonl"
     use_gpu: bool = True
     index_path: str = "covers.faiss"
@@ -27,6 +29,7 @@ class IndexConfig:
 @dataclass
 class TrainingConfig:
     """Configuration for model training."""
+
     jsonl_path: str = "metadata.jsonl"
     epochs: int = 5
     batch_size: int = 32
@@ -42,6 +45,7 @@ class TrainingConfig:
 @dataclass
 class ModelConfig:
     """Configuration for model loading."""
+
     clip_model: str = "ViT-B-16"
     clip_pretrained: str = "laion2b_s34b_b88k"
     weights_path: str = "data/cover_encoder.pt"
@@ -50,6 +54,7 @@ class ModelConfig:
 @dataclass
 class PathConfig:
     """Configuration for path detection."""
+
     covers_root_env: str = "COVERS_ROOT"
     default_covers_dir: str = "covers"
     data_dir: str = "data"
@@ -58,6 +63,7 @@ class PathConfig:
 @dataclass
 class LoggingConfig:
     """Configuration for logging."""
+
     level: str = "INFO"
     format: str = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 
@@ -72,6 +78,7 @@ def setup_logging(config: LoggingConfig = None):
 @dataclass
 class AppConfig:
     """Main application configuration."""
+
     device: Optional[str] = None  # Auto-detect if None
     paths: PathConfig = field(default_factory=PathConfig)
     model: ModelConfig = field(default_factory=ModelConfig)
@@ -84,6 +91,7 @@ class AppConfig:
         if self.device is None:
             try:
                 import torch
+
                 self.device = "cuda" if torch.cuda.is_available() else "cpu"
             except ImportError:
                 self.device = "cpu"
