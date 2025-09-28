@@ -29,13 +29,14 @@ class TrainingConfig:
     """Configuration for model training."""
     jsonl_path: str = "metadata.jsonl"
     epochs: int = 5
-    batch_size: int = 128
+    batch_size: int = 32
     lr: float = 5e-4
     workers: int = 8
     dim: int = 512
-    amp: str = "none"  # "none", "fp16", "bf16"
+    amp: str = "fp16"
     out_path: str = "cover_encoder.pt"
     temperature: float = 0.07
+    grad_accumulation_steps: int = 4
 
 
 @dataclass

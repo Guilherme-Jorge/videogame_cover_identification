@@ -24,8 +24,9 @@ class NTXent(nn.Module):
         z = torch.cat([z1, z2], dim=0)
         sim = (z @ z.t()) / self.t
         b = z1.size(0)
-        mask = torch.eye(2 * b, device=z.device, dtype=torch.bool)
-        sim.masked_fill_(mask, -1e9)
+        eye = torch.eye(2 * b, device=z.device, dtype=torch.bool)
+        min_val = torch.finfo(sim.dtype).min
+        sim = sim.masked_fill(eye, min_val)
         targets = torch.arange(b, device=z.device)
         targets = torch.cat([targets + b, targets])
         return nn.functional.cross_entropy(sim, targets)

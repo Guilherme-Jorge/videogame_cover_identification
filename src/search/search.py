@@ -107,7 +107,15 @@ def search_cover(
     accept = accept or config.search.accept_threshold
     device = device or config.device
 
-    index, metas = load_index(config.index.index_path, config.index.meta_path)
+    covers_root = detect_covers_root()
+    index_path = config.index.index_path
+    if not os.path.isabs(index_path):
+        index_path = os.path.join(covers_root, index_path)
+    meta_path = config.index.meta_path
+    if not os.path.isabs(meta_path):
+        meta_path = os.path.join(covers_root, meta_path)
+
+    index, metas = load_index(index_path, meta_path)
     model, preprocess = load_encoder(device, config.model.weights_path)
 
     with torch.no_grad():

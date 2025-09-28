@@ -99,13 +99,21 @@ def build_index(
         npy_path: Output path for embeddings.
         meta_path: Output path for metadata.
     """
+    covers_root = root or detect_covers_root()
     jsonl_path = jsonl_path or config.index.jsonl_path
+    if not os.path.isabs(jsonl_path):
+        jsonl_path = os.path.join(covers_root, jsonl_path)
     use_gpu = use_gpu if use_gpu is not None else config.index.use_gpu
     index_path = index_path or config.index.index_path
+    if not os.path.isabs(index_path):
+        index_path = os.path.join(covers_root, index_path)
     npy_path = npy_path or config.index.npy_path
+    if not os.path.isabs(npy_path):
+        npy_path = os.path.join(covers_root, npy_path)
     meta_path = meta_path or config.index.meta_path
+    if not os.path.isabs(meta_path):
+        meta_path = os.path.join(covers_root, meta_path)
 
-    covers_root = root or detect_covers_root()
     metas, embs = embed_images(jsonl_path, root=covers_root, device=device)
 
     # Convert to numpy for FAISS

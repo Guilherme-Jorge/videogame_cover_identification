@@ -1,6 +1,9 @@
 """Training functionality for fine-tuning CLIP."""
 
 import argparse
+import logging
+import math
+import os
 from contextlib import nullcontext
 
 import torch
@@ -14,6 +17,8 @@ from ..training.dataset import CoverAugDataset
 from ..training.losses import NTXent
 from ..utils.paths import detect_covers_root
 
+logger = logging.getLogger(__name__)
+
 
 def train_finetune(
     jsonl_path: str = None,
@@ -25,7 +30,8 @@ def train_finetune(
     dim: int = None,
     amp: str = None,
     out_path: str = None,
-    device: str = None
+    device: str = None,
+    grad_accumulation_steps: int = None
 ):
     """Fine-tune CLIP model using contrastive learning.
 
@@ -40,9 +46,13 @@ def train_finetune(
         amp: Automatic mixed precision mode ("none", "fp16", "bf16").
         out_path: Output path for saved model.
         device: Device for training.
+        grad_accumulation_steps: Number of micro-batches to accumulate before optimizer step.
     """
     # Use config defaults
+    root_dir = root_dir or detect_covers_root()
     jsonl_path = jsonl_path or config.training.jsonl_path
+    if not os.path.isabs(jsonl_path):
+        jsonl_path = os.path.join(root_dir, jsonl_path)
     epochs = epochs or config.training.epochs
     batch_size = batch_size or config.training.batch_size
     lr = lr or config.training.lr
@@ -50,8 +60,20 @@ def train_finetune(
     dim = dim or config.training.dim
     amp = amp or config.training.amp
     out_path = out_path or config.training.out_path
+    if not os.path.isabs(out_path):
+        out_path = os.path.join(root_dir, out_path)
     device = device or config.device
-    root_dir = root_dir or detect_covers_root()
+    grad_accumulation_steps = grad_accumulation_steps or config.training.grad_accumulation_steps
+    if grad_accumulation_steps < 1:
+        msg = "grad_accumulation_steps must be >= 1"
+        raise ValueError(msg)
+    effective_batch_size = batch_size * grad_accumulation_steps
+    logger.info(
+        "Training with micro batch size %s, grad accumulation %s, effective batch size %s",
+        batch_size,
+        grad_accumulation_steps,
+        effective_batch_size,
+    )
 
     # Load base CLIP model
     import open_clip
@@ -82,10 +104,10 @@ def train_finetune(
         pin_memory=True,
     )
 
-    # Optimizer and scheduler
     opt = torch.optim.AdamW(net.parameters(), lr=lr, weight_decay=1e-4)
+    steps_per_epoch = max(1, math.ceil(len(dl) / grad_accumulation_steps))
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(
-        opt, T_max=epochs * max(1, len(dl))
+        opt, T_max=epochs * steps_per_epoch
     )
 
     # Loss function
@@ -101,15 +123,14 @@ def train_finetune(
     use_scaler = (amp == "fp16" and device_type == "cuda")
     scaler = torch.amp.GradScaler(device=device_type, enabled=use_scaler)
 
-    # Training loop
     net.train()
     for ep in range(epochs):
         pbar = tqdm(dl, desc=f"epoch {ep + 1}/{epochs}")
-        for v1, v2 in pbar:
+        opt.zero_grad(set_to_none=True)
+        for step_idx, (v1, v2) in enumerate(pbar, start=1):
             v1 = v1.to(device, non_blocking=True)
             v2 = v2.to(device, non_blocking=True)
 
-            # Choose autocast context
             autocast_ctx = nullcontext()
             if amp != "none":
                 if device_type == "cuda":
@@ -122,28 +143,34 @@ def train_finetune(
                 z2 = net(v2)
                 loss = loss_fn(z1, z2)
 
-            opt.zero_grad(set_to_none=True)
+            scaled_loss = loss / grad_accumulation_steps
             if use_scaler:
-                scaler.scale(loss).backward()
-                scaler.step(opt)
-                scaler.update()
+                scaler.scale(scaled_loss).backward()
             else:
-                loss.backward()
-                opt.step()
-            sched.step()
+                scaled_loss.backward()
+
+            should_step = step_idx % grad_accumulation_steps == 0 or step_idx == len(dl)
+            if should_step:
+                if use_scaler:
+                    scaler.step(opt)
+                    scaler.update()
+                else:
+                    opt.step()
+                opt.zero_grad(set_to_none=True)
+                sched.step()
             pbar.set_postfix(loss=float(loss))
 
     # Save model
     torch.save(net.state_dict(), out_path)
-    print(f"Saved model to {out_path}")
+    logger.info("Saved model to %s", out_path)
 
 
 def main():
     """CLI entry point for training."""
     ap = argparse.ArgumentParser(description="Fine-tune CLIP for cover identification")
-    ap.add_argument("--jsonl", default=config.training.jsonl_path,
+    ap.add_argument("--jsonl-path", default=config.training.jsonl_path,
                    help="Path to metadata.jsonl")
-    ap.add_argument("--root", default=None,
+    ap.add_argument("--root-dir", default=None,
                    help="Root dir for image files")
     ap.add_argument("--epochs", type=int, default=config.training.epochs,
                    help="Number of epochs")
@@ -157,10 +184,13 @@ def main():
                    help="Output embedding dimension")
     ap.add_argument("--amp", choices=["none", "fp16", "bf16"],
                    default=config.training.amp, help="Automatic mixed precision")
-    ap.add_argument("--out", default=config.training.out_path,
+    ap.add_argument("--out-path", default=config.training.out_path,
                    help="Output path for model")
     ap.add_argument("--device", default=config.device,
                    help="Device for training")
+    ap.add_argument("--grad-accumulation-steps", type=int,
+                   default=config.training.grad_accumulation_steps,
+                   help="Number of micro-batches to accumulate before optimizer step")
 
     args = ap.parse_args()
     train_finetune(**vars(args))

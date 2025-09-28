@@ -1,5 +1,6 @@
 """Dataset classes for training."""
 
+import logging
 import os
 
 import numpy as np
@@ -9,6 +10,8 @@ from PIL import Image, ImageFilter
 from torch.utils.data import Dataset
 
 from ..utils.data import load_jsonl
+
+logger = logging.getLogger(__name__)
 
 
 class PerspectiveJitter:
@@ -60,6 +63,11 @@ def glare_overlay(img: Image.Image, alpha_range: tuple = (0.05, 0.2)) -> Image.I
     return Image.composite(overlay, img, mask.point(lambda p: int(p * alpha)))
 
 
+def convert_to_rgb(img: Image.Image) -> Image.Image:
+    """Convert image to RGB."""
+    return img.convert("RGB")
+
+
 class CoverAugDataset(Dataset):
     """Dataset for contrastive learning on game covers with augmentations."""
 
@@ -93,31 +101,31 @@ class CoverAugDataset(Dataset):
             valid.append(it)
 
         self.items = valid
-        print(f"CoverAugDataset: {len(valid)} valid, "
-              f"skipped {skipped_null} null paths, {skipped_missing} missing files.")
+        logger.info(
+            "CoverAugDataset: %s valid, skipped %s null paths, %s missing files.",
+            len(valid),
+            skipped_null,
+            skipped_missing,
+        )
 
-        # Base preprocessing
         self.base = t.Compose([
             t.Resize(256, interpolation=t.InterpolationMode.BICUBIC),
             t.CenterCrop(224),
         ])
 
-        # Color augmentation
         self.color = t.ColorJitter(0.4, 0.4, 0.4, 0.1)
-
-        # Augmentation pipeline
+        self.perspective_jitter = PerspectiveJitter(0.10)
         self.aug = t.Compose([
-            t.Lambda(lambda im: PerspectiveJitter(0.10)(im)),
+            self.perspective_jitter,
             t.RandomApply([t.GaussianBlur(kernel_size=9, sigma=(0.1, 2.0))], p=0.3),
-            t.RandomApply([t.Lambda(glare_overlay)], p=0.2),
+            t.RandomApply([glare_overlay], p=0.2),
             t.RandomResizedCrop(224, scale=(0.8, 1.0)),
             t.RandomRotation(degrees=3),
             t.RandomAdjustSharpness(1.5, p=0.3),
             t.RandomAutocontrast(p=0.3),
-            t.Lambda(lambda im: im.convert("RGB")),
+            convert_to_rgb,
         ])
 
-        # Final tensor conversion
         self.to_tensor = t.Compose([
             t.ToTensor(),
             t.Normalize(
