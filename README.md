@@ -13,6 +13,7 @@ It works by:
 - **Fast retrieval**: FAISS inner-product index over L2-normalized embeddings.
 - **CLIP-based encoder**: Uses OpenCLIP, with optional fine-tuning for this task.
 - **Confidence signals**: Cosine similarity and geometric matching score.
+- **Base game disambiguation**: Groups edition variants and highlights the base title.
 - **Simple CLI**: Build the index and run a search with one command each.
 
 ## What’s included
@@ -58,9 +59,26 @@ The system expects a JSONL metadata file describing each cover:
 
 By default, paths are detected automatically. You can also set an environment variable to control it:
 ```bash
+# Bash / Linux / macOS
 export COVERS_ROOT=/absolute/path/to/data
 ```
+```powershell
+# PowerShell (Windows)
+$env:COVERS_ROOT = "D:\\absolute\\path\\to\\data"
+```
+```cmd
+:: Command Prompt (Windows)
+set COVERS_ROOT=D:\absolute\path\to\data
+```
 The code looks for a `covers/` folder under this root.
+
+### Path detection
+If `COVERS_ROOT` is not set, the system attempts to auto-detect a root directory that contains a `covers/` subfolder by checking:
+- a preferred/root argument provided by callers
+- the script directory and nearby project roots
+- a `data/` directory under the project
+
+Set `COVERS_ROOT` explicitly if your `covers/` folder lives elsewhere.
 
 ## Data source
 This project is based on cover data from the IGDB database ([IGDB](https://www.igdb.com/)).
@@ -87,6 +105,7 @@ What it does:
 - Embeds both the rectified crop and the full image.
 - Retrieves candidates from FAISS and re-ranks the top results with SIFT.
 - Chooses the stronger of the two strategies (crop vs full) based on combined signals.
+- Identifies the likely base game title when the best match is an edition variant.
 
 The CLI prints a JSON result like:
 ```json
@@ -105,6 +124,11 @@ The CLI prints a JSON result like:
   "alternatives": [
     {"cosine": 0.39, "id": 101, "name": "Another Game"}
   ],
+  "base": {
+    "cosine": 0.41,
+    "id": 7346,
+    "name": "Some Game"
+  },
   "other_variant": {
     "strategy": "full",
     "cosine": 0.37,
@@ -123,7 +147,7 @@ Centralized in `src/config.py`:
 - **Model**: CLIP backbone (`ViT-B-16` by default), optional fine-tuned weights path `data/cover_encoder.pt`.
 - **Search**: `topk`, `rerank_k`, `accept_threshold`, `geom_score_threshold`.
 - **Index**: default paths and GPU usage.
-- **Training**: epochs, batch size, LR, output path, AMP mode.
+- **Training**: epochs, batch size, LR, workers, grad accumulation, temperature, output path, AMP mode.
 - **Paths**: `COVERS_ROOT` env var and default directories.
 - **Logging**: level and format.
 
@@ -133,15 +157,17 @@ You can fine-tune the image encoder on your covers to improve retrieval robustne
 Command-line entry:
 ```bash
 python -m src.train_finetune \
-  --jsonl data/metadata.jsonl \
-  --root /path/to/data \
+  --jsonl-path data/metadata.jsonl \
+  --root-dir /path/to/data \
   --epochs 5 \
   --batch-size 128 \
   --lr 5e-4 \
   --dim 512 \
   --amp none \
-  --out data/cover_encoder.pt \
-  --device cuda
+  --out-path data/cover_encoder.pt \
+  --device cuda \
+  --workers 8 \
+  --grad-accumulation-steps 4
 ```
 What training does:
 - Uses contrastive learning (NT-Xent) on two augmented views of each cover.
@@ -168,7 +194,11 @@ What training does:
 │   ├── search/search.py        # search + rectification + rerank
 │   ├── training/train.py       # training loop
 │   ├── training/dataset.py     # dataset + augmentations
-│   └── training/losses.py      # NT-Xent loss
+│   ├── training/losses.py      # NT-Xent loss
+│   └── utils/                  # misc utilities
+│       ├── data.py             # JSONL loader
+│       ├── image.py            # image ops (detect/rectify, SIFT)
+│       └── paths.py            # path auto-detection
 ├── export_crop.png             # latest crop from search (debug)
 ├── export_debug.png            # latest detection overlay (debug)
 ├── requirements.txt
