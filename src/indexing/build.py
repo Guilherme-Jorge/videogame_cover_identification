@@ -39,7 +39,7 @@ def embed_images(
     n = len(raw_metas)
 
     with torch.no_grad():
-        dummy = torch.zeros(1, 3, 224, 224, device=device)
+        dummy = torch.zeros(1, 3, 224, 224, device=torch.device(device))
         out_dim = int(model(dummy).shape[-1])
 
     valid_metas = []

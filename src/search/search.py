@@ -42,15 +42,17 @@ def _extract_base_name(game_name: str) -> str:
         r"\s+-\s+Anniversary Edition$",
         r"\s+-\s+Remastered$",
         r"\s+-\s+HD$",
-        r"\s+Edition$",
-        r"\s+Special$",
-        r"\s+Limited$",
-        r"\s+Deluxe$",
     ]
 
     base_name = game_name
-    for pattern in edition_patterns:
-        base_name = re.sub(pattern, "", base_name, flags=re.IGNORECASE)
+    changed = True
+    while changed:
+        changed = False
+        for pattern in edition_patterns:
+            new_base_name = re.sub(pattern, "", base_name, flags=re.IGNORECASE)
+            if new_base_name != base_name:
+                base_name = new_base_name
+                changed = True
 
     return base_name.strip()
 
@@ -133,7 +135,8 @@ def _find_matching_games_in_metadata(base_names: set[str], all_metas: list[dict]
     matching_games = []
     for meta in all_metas:
         game_base_name = _extract_base_name(meta["name"])
-        if game_base_name in base_names:
+        # Check if any base name is a substring of the game base name (case insensitive)
+        if any(base_name.lower() in game_base_name.lower() for base_name in base_names):
             matching_games.append(
                 {
                     "id": meta["id"],
@@ -389,7 +392,7 @@ def search_cover(
     model, preprocess = load_encoder(device, config.model.weights_path)
 
     with torch.no_grad():
-        dummy = torch.zeros(1, 3, 224, 224, device=next(model.parameters()).device)
+        dummy = torch.zeros(1, 3, 224, 224, device=torch.device(device))
         out_dim = int(model(dummy).shape[-1])
 
     if getattr(index, "d", None) not in (None, out_dim):

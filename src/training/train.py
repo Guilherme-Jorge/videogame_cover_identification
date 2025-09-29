@@ -48,7 +48,11 @@ def _setup_training_parameters(
     if not os.path.isabs(out_path):
         out_path = os.path.join(root_dir, out_path)
     device = device or config.device
-    grad_accumulation_steps = grad_accumulation_steps or config.training.grad_accumulation_steps
+    grad_accumulation_steps = (
+        grad_accumulation_steps
+        if grad_accumulation_steps is not None
+        else config.training.grad_accumulation_steps
+    )
     if grad_accumulation_steps < 1:
         msg = "grad_accumulation_steps must be >= 1"
         raise ValueError(msg)
@@ -130,7 +134,7 @@ def _setup_amp(amp: str) -> tuple[str, torch.dtype | None, bool, torch.amp.GradS
     """Set up automatic mixed precision."""
     device_type = "cuda" if torch.cuda.is_available() else "cpu"
     amp_dtype = None
-    if amp == "fp16":
+    if amp == "fp16" and device_type == "cuda":
         amp_dtype = torch.float16
     elif amp == "bf16":
         amp_dtype = torch.bfloat16

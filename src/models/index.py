@@ -37,11 +37,26 @@ def build_faiss(embs: np.ndarray, use_gpu: bool = True) -> faiss.Index:
     """
     d = int(embs.shape[1])
     if use_gpu and faiss.get_num_gpus() > 0:
-        res = faiss.StandardGpuResources()
-        index_cpu = faiss.IndexFlatIP(d)
-        index_gpu = faiss.index_cpu_to_gpu(res, 0, index_cpu)
-        index_gpu.add(embs)
-        index = faiss.index_gpu_to_cpu(index_gpu)
+        try:
+            res = faiss.StandardGpuResources()
+            index_cpu = faiss.IndexFlatIP(d)
+            try:
+                index_gpu = faiss.index_cpu_to_gpu(res, 0, index_cpu)
+                index_gpu.add(embs)
+                # Try to convert back to CPU for serialization, fallback to GPU index if not available
+                try:
+                    index = faiss.index_gpu_to_cpu(index_gpu)
+                except AttributeError:
+                    # faiss-cpu doesn't have GPU to CPU conversion
+                    index = index_gpu
+            except AttributeError:
+                # faiss-cpu doesn't have GPU functions at all
+                index = faiss.IndexFlatIP(d)
+                index.add(embs)
+        except AttributeError:
+            # faiss-cpu doesn't have GPU resources
+            index = faiss.IndexFlatIP(d)
+            index.add(embs)
     else:
         index = faiss.IndexFlatIP(d)
         index.add(embs)

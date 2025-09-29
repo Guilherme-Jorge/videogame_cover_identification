@@ -25,7 +25,7 @@ def embed_image(model, preprocess, image_bgr: np.ndarray) -> np.ndarray:
     x = preprocess(im).unsqueeze(0).to(next(model.parameters()).device)
     with torch.no_grad():
         z = model(x)
-    return z.cpu().numpy().astype("float32")
+    return z.squeeze(0).cpu().numpy().astype("float32")
 
 
 def _order_points(pts: np.ndarray) -> np.ndarray:

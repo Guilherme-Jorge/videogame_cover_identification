@@ -31,4 +31,28 @@ repos:
         language: python
         additional_dependencies: ["lizard==1.17.10"]
         types: [python]
-        args: ["-x", "src/gera_coordenadas.egg-info/*", "--verbose", "--warnings_only"]
+        args:
+          [
+            "-x",
+            "src/gera_coordenadas.egg-info/*",
+            "--verbose",
+            "--warnings_only",
+          ]
+
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: python -m pytest
+        language: system
+        args:
+          [
+            "tests",
+            "--tb=short",
+            "--strict-markers",
+            "-v",
+            "--cov=.",
+            "--cov-report=xml",
+          ]
+        pass_filenames: false
+        always_run: true
